@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class GameController : MonoBehaviour
 {
@@ -10,7 +11,21 @@ public class GameController : MonoBehaviour
     public MinesweeperBoard board;
     private MinesweeperCell[,] gameState;
     private bool gameOver;
+    private eGameDifficulty gameDifficulty;
+    public static GameController Instance { get; private set; }
 
+    private void Awake()
+    {
+        //Singleton setup
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+        }
+        else
+        {
+            Instance = this;
+        }
+    }
 
     public void Start()
     {
@@ -19,13 +34,8 @@ public class GameController : MonoBehaviour
 
     public void Update()
     {
-        //Restarting the game
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            NewGame();
-        }
         //Handle mouse clicking for Flagging or Revealing a Tile
-        else if (!gameOver)
+        if (!gameOver)
         {
             if (Input.GetMouseButtonDown(1))
             {
@@ -41,9 +51,18 @@ public class GameController : MonoBehaviour
     //Creating a new game with all the previously set parameters
     private void NewGame()
     {
+        board.gameObject.SetActive(true);
+        board.tilemap.ClearAllTiles();
+        //Getting player Preferences
+        minesInBoard = PlayerPrefs.GetInt("minesInBoard");
+        width = PlayerPrefs.GetInt("boardWidth");
+        height = PlayerPrefs.GetInt("boardHeight");
+        gameDifficulty = (eGameDifficulty) PlayerPrefs.GetInt("GameDifficulty");
+        UIController.Instance.SetupUI(gameDifficulty, minesInBoard);    
+        //Setupping the game
         gameState = new MinesweeperCell[width, height];
         //Centering the camera
-        Camera.main.transform.position = new Vector3(width / 2f, height / 2f, -10f);
+        Camera.main.transform.position = new Vector3(width / 2f - width / 3f, height / 2f, -10f);
         gameOver = false;
         //Generating all the empty Cells
         GenerateCells();
@@ -227,7 +246,7 @@ public class GameController : MonoBehaviour
     //Function that ends the game in Lost state -> revealing all the hidden mines
     private void GameLost()
     {
-        Debug.Log("Lost!");
+        UIController.Instance.LostGame();
         //we set the gameover bool
         gameOver = true;
         for (int x = 0; x < width; x++)
@@ -243,12 +262,15 @@ public class GameController : MonoBehaviour
                 }
             }
         }
+
     }
+
+
 
     //Function that ends the game in Won state -> flagging all the mines
     private void GameWon()
     {
-        Debug.Log("Won!");
+        UIController.Instance.WonGame();
         //we set the gameover bool
         gameOver = true;
         for (int x = 0; x < width; x++)
@@ -264,5 +286,40 @@ public class GameController : MonoBehaviour
                 }
             }
         }
+    }
+
+    //Buttons functions
+    public void QuitApplication()
+    {
+    #if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+    #else
+                     Application.Quit();
+    #endif
+
+    }
+
+    public void StartEasy()
+    {
+        StartApplication(10, 9, 9, eGameDifficulty.Easy);
+
+    }
+
+    public void StartMedium()
+    {
+        StartApplication(40, 16, 16, eGameDifficulty.Medium);
+    }
+
+    public void StartHard()
+    {
+        StartApplication(99, 18, 18, eGameDifficulty.Hard);
+    }
+    private void StartApplication(int minesCount, int width, int height, eGameDifficulty gameDifficulty)
+    {
+        PlayerPrefs.SetInt("GameDifficulty", (int)gameDifficulty);
+        PlayerPrefs.SetInt("minesInBoard", minesCount);
+        PlayerPrefs.SetInt("boardWidth", width);
+        PlayerPrefs.SetInt("boardHeight", height);
+        NewGame();
     }
 }
